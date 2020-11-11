@@ -1,0 +1,14 @@
+Package: BIB
+Type: Package
+Title: Estimating Brucellosis Prevalence in Alpine Ibex in the Bargy Mountains
+Version: 1.0
+Date: 2020-10-18
+Depends: R (>= 3.5.0)
+Imports: ggplot2,stringr,dplyr,purrr,gridExtra,rlang,tibble,tidyr,rjags
+Suggests: bayesplot, coda,MCMCvis,knitr
+LazyData: true
+Author: Clement Calenge
+Maintainer: Clement Calenge <clement.calenge@ofb.gouv.fr>
+Description: Functions and data for the estimation of the seroprevalence and prevalence of active infection of the brucellosis in a population of alpine ibex in the Bargy Mountains (French Alps), from 2012 to 2018, with data collected by the Office Francais de la Biodiversite, as described in Calenge et al. (in prep.).
+VignetteBuilder: knitr
+License: GPL (>= 2)

@@ -1,0 +1,568 @@
+\documentclass[a4paper]{article}
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Estimation of the seroprevalence and prevalence of active infection of the brucellosis in a population of alpine ibex in the Bargy Mountains (French Alps), from 2012 to 2018}
+%\VignetteDepends{knitr,ggplot2,stringr,dplyr,purrr,gridExtra,rlang,tibble,tidyr,rjags, coda,bayesplot,MCMCvis}
+\usepackage{fancyvrb}
+\usepackage{color}
+\usepackage{url}
+\usepackage{amsfonts}
+%\usepackage{pdfcolmk}
+\usepackage{epsfig}
+\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue]{hyperref}
+\usepackage{longtable}
+%\usepackage{natbib}
+\usepackage{ucs}
+\usepackage{savesym}
+\savesymbol{iint}
+\savesymbol{iiint}
+\usepackage{amsmath}
+\usepackage{rotating}
+\usepackage{appendix}
+%\usepackage[utf8]{inputenc}
+\newlength{\defaultparindent}
+\setlength{\defaultparindent}{\parindent}
+\newenvironment{Default Paragraph Font}{}{}
+\newcommand{\INT}[1]{\stackrel{\circ}{#1}}
+\topmargin -1.5cm
+\headheight 0.5cm
+\headsep 1.0cm
+\topskip 0.5cm
+\textheight 24.5cm
+\footskip 1.0cm
+\oddsidemargin 0.0cm
+\evensidemargin 0.0cm
+\textwidth 16cm
+\parskip 0.2cm
+\parindent 1.0cm
+\baselineskip 0.2cm
+
+
+
+\title{ Estimation of the seroprevalence and prevalence of active infection of the brucellosis in a population of alpine ibex in the Bargy Mountains (French Alps), from 2012 to 2018 }
+\author{Clement Calenge, Sebastien Lambert, Elodie Petit, Anne
+  Thebault\\
+  Emmanuelle Gilot-Fromont, Carole Toigo, Sophie Rossi.}
+\date{November 2020}
+
+\setlength{\parindent}{0cm}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+<<setup, include=FALSE, cache=FALSE>>=
+# set global chunk options
+library('knitr')
+opts_chunk$set(fig.path="caperpy-",
+               fig.align="center",
+               fig.show="hold",
+               echo=TRUE,
+               results="markup",
+               fig.width=10,
+               fig.height=10, out.width='\\linewidth',
+               out.height='\\linewidth',
+               cache=FALSE,
+               dev='png',
+               concordance=TRUE,
+               error=FALSE)
+opts_knit$set(aliases = c(h = 'fig.height',
+              w = 'fig.width',
+              wo='out.width',
+              ho='out.height'))
+options(replace.assign=TRUE,width=60)
+set.seed(9567)
+@
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%                                                            %%%%
+%%%%                  The vignette starts here                  %%%%
+%%%%                                                            %%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\newpage
+
+\section{Introduction}
+
+The package BIB contains the R code used to fit the model described in
+the paper of Calenge et al. (in prep.). The aim of this paper is to
+estimate the seroprevalence and prevalence of active infection of
+Alpine ibexes by the brucellosis in the Bargy mountains (French
+Alps). BIB stands for ``Brucellosis of Ibexes in Bargy mountains''.\\
+
+To install this package, first install the package \texttt{devtools}
+and use the function \texttt{install\_github} to install
+\texttt{BIB}:
+
+<<eval=FALSE>>=
+## If devtools is not yet installed, type
+install.packages("devtools")
+
+## Install the package caperpyogm
+devtools::install_github("ClementCalenge/BIB")
+@ 
+
+It is supposed throughout this vignette that the reader is familiar
+with the model developed in this paper, as well as with the
+results. This vignette just aims at giving the code needed to
+reproduce the results, tables and figures of the paper and its
+supplementary material.\\
+
+\textbf{Note that since the data used for the model are sensitive, we
+  did not have the authorization to include the data used to fit the
+  model (though discussions are still underway to include this dataset
+  in the package). We therefore simulated a dataset with similar
+  properties, so that the user can try the code on this simulated
+  dataset.} The results presented in the package are those obtained
+with this simulated dataset.\\
+
+We first load the library \texttt{BIB}, which contains the data and
+the functions that we used to fit the model:
+
+<<load-library>>=
+library(BIB)
+@ 
+
+All the datasets of the package are ``lazy-loaded'', i.e. they are
+immediately available:
+
+<<description-lekcounts>>=
+str(BruData)
+@ 
+
+This list contains the simulated data with a similar structure to
+those that we used to fit the model. The following elements are
+available:
+
+\begin{itemize}
+    \item \texttt{CensusesNmark}: Number of marked animals during each
+      census day. 
+    \item \texttt{CensusesNind}: Total number of marked animals during
+      each census day. 
+    \item \texttt{CensusesYear}: Year corresponding to each census
+      day. 
+    \item \texttt{CensusesNdays}: Number of census days.
+    \item \texttt{CapturesN}: Number of captured animals.
+    \item \texttt{CapturesYear}: Year corresponding to each captured
+      animal. 
+    \item \texttt{CapturesSeroplus}: Whether each captured animal is
+      seropositive. 
+    \item \texttt{CaptureNumber}: Number of captured animals during
+      each year. 
+    \item \texttt{RecapturesN}: Number of recaptured animals. 
+    \item \texttt{RecapturesSeroplus}: Whether each recaptured animal
+      is seropositive. 
+    \item \texttt{RecapturesTimeSinceCapt}: For each recaptured animal, the time
+      spent since the first capture.
+    \item \texttt{RecapturesDurationContamin}: A matrix describing for each
+      recaptured animal (rows), whether the year in column belonged to
+      the period between the capture and the recapture.
+    \item \texttt{BacterialNanalyzed}: The number of analyzed organs
+      for each animal in the bacterial cultures dataset. 
+    \item \texttt{BacterialNpositive}: The number of organs detected
+      as infected for each animal in the bacterial cultures dataset. 
+    \item \texttt{BacterialLogFC}: The logarithm of the CFT titer for
+      each animal in the bacterial cultures dataset. 
+    \item \texttt{BacterialNanimals}: The number of animals in the
+      bacterial cultures dataset. 
+    \item \texttt{BacterialAge}: The age of each animal in the
+      bacterial dataset. 
+    \item \texttt{CenSeroplusAge}: The age of each animal for which
+      the CFT titer was available in the capture dataset. 
+    \item \texttt{CenSeroplusLogFC}: The log of the CFT titer for each
+      animal for which the CFT titer was available in the capture
+      dataset. 
+    \item \texttt{CenSeroplusYear}: The year for each animal for which
+      the CFT titer was available in the capture dataset. 
+    \item \texttt{CenSeroplusNanimals}: The number of animals for
+      which the CFT titer was available in the capture dataset. 
+    \item \texttt{PopSize}: Point estimates of the population size
+      during each year of the study. 
+    \item \texttt{Nyears}: The number of year of the monitoring (6
+      years in this study). 
+\end{itemize}
+
+
+\section{Model fit}
+\label{sec:model-fit-1}
+
+\subsection{Fit with JAGS}
+\label{sec:fit-with-jags}
+
+We have fitted 4 models in the papers. These models have all been
+programmed in JAGS and their code is available as datasets in the
+package. For example, for the main model used in the paper, the code
+can be retrieved by: 
+
+<<JAGS-model-paper, eval=FALSE>>=
+cat(ModelCatalyticYear)
+@ 
+
+We do not show the result of this command to save some space in this
+vignette, but the reader is encouraged to execute this command to read
+the code of the model. Other models are coded similarly (see the help
+page \texttt{?ModelCatalyticYear} for a description of the model
+codes). The model can be fitted with the package \texttt{rjags}:
+
+<<eval=FALSE>>=
+library(rjags)
+
+obmcy <- jags.model(textConnection(ModelCatalyticYear),
+                    data=BruData, n.chains = 5,
+                    inits =
+                        list(e=as.numeric(BruData$BacterialNpositive>0),
+                             eta=0.1))
+
+SamplesModelCatalyticYear <-
+    coda.samples(obmcy, n.iter=5000, thin=5,
+                 variable.names = c("pitu","pitm","pit", "gammat",
+                                    "eta","beta0","beta1","beta2","beta3",
+                                    "sigmaf","probad","probai",
+                                    "wt","lambdat", "omegat"))
+
+@ 
+
+
+The other models have been fitted similarly, and the resulting MCMC
+samples are available as datasets of the package (see the help page
+\texttt{SamplesModelCatalyticYear}).
+
+
+\subsection{Mixing}
+\label{sec:mixing}
+
+Once the MCMC samples have been obtained, we can plot the chain for a
+visual examination of the mixing:
+
+<<traceplot>>=
+library(bayesplot)
+library(MCMCvis)
+cm <- MCMCchains(SamplesModelCatalyticYear,
+                 params=c("pitu","pitm","pit", "gammat",
+                          "eta","beta0","beta1","beta2","beta3",
+                          "sigmaf","probad","probai",
+                          "wt","lambdat", "omegat"),
+                 mcmc.list=TRUE)
+mcmc_trace(cm)
+@ 
+
+We also calculate the Gelman diagnostic for the parameters. Again, to
+save some space, we do not show the results of this diagnostic in this
+vignette and leave it to the reader to check the correct mixing based
+on this diagnostic:
+
+<<gelman-diagnostic, eval=FALSE>>=
+gelman.diag(SamplesModelCatalyticYear, multivariate=FALSE)
+@ 
+
+
+
+\subsection{Goodness of fit}
+\label{sec:goodness-fit}
+
+
+We then checked the goodness of fit of the model, using the approach
+recommended by Gelman and Meng (1996, see paper). Each MCMC iteration
+generated a sampled value $\boldsymbol{\theta}_r$ of the vector of
+parameters $\boldsymbol{\theta}$ of the model. For each simulated
+value $\boldsymbol{\theta} r$, we simulated a replication of the
+captures, bacterial cultures and censuses datasets. We then compared
+summary statistics calculated on the observed datasets to the
+distribution of these summary statistics calculated on the simulated
+datasets. More specically, we used as summary statistics: (i) the
+number of marked females detected during each day of census in the
+censuses dataset, (ii) the proportion of unmarked females detected as
+seropositive each year in the seroprevalence dataset, (iii) the same
+proportion calculated only on marked females, (iv) the log-titer of
+the CFT for each seropositive female. This check is programmed in the
+function \texttt{simulateGOF}:
+
+<<simulate-datasets>>=
+simg <- simulateGOF(SamplesModelCatalyticYear, BruData)
+simg
+@ 
+
+
+
+\subsection{Model comparison}
+\label{sec:model-comparison}
+
+
+As explained before, we have fitted similarly the four alternative
+models, and the resulting MCMC samples are available as datasets of
+the package (all the datasets of the package with a name starting with
+\texttt{SampleModel}). We have programmed the function
+\texttt{totalPrevalence} to estimate the overall prevalence with each
+model based on these MCMC sample datasets. This is the code we used to
+generate the figure in the supplementary material to compare the
+models:
+
+<<plot-prev>>=
+library(ggplot2)
+df <- do.call(rbind, lapply(list(SamplesModelCatalyticYear,
+                                 SamplesModelConstPrev,
+                                 SamplesModelCatalytic,
+                                 SamplesModelDensity),
+                            totalPrevalence))
+
+df$Model <- factor(c(rep("Variable FOI (used in the paper)", 6),
+                                 rep("Constant seroprevalence", 6),
+                                 rep("Constant force infection", 6),
+                                 rep("Variable FOI (approx. density)", 6)),
+                                levels=c("Constant seroprevalence",
+                                         "Constant force infection",
+                                         "Variable FOI (used in the paper)",
+                                         "Variable FOI (approx. density)"))
+
+pd <- position_dodge(0.2)
+ggplot(df,aes(x=Year, y=Prevalence, col=Model, group=Model))+
+     geom_point(size=3, position=pd)+geom_line(position=pd)+
+     geom_errorbar(aes(ymin=LowerBound, ymax=UpperBound), width=0.2, position=pd)+
+     xlab("Year")+ylab("Overall seroprevalence")
+
+@ 
+
+The equivalent of this figure, obtained with the actual dataset, is
+interpreted in the supplementary material of the paper.
+
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Summary tables}
+\label{sec:summary-tables}
+
+We have programmed the function \texttt{getTable2and3} to present the
+point estimates and 90\% credible intervals for the key parameters of
+the model, as displayed in table 2 and 3 of the paper. We can
+therefore obtain the table 2, showing the results for the overall
+seroprevalence, the seroprevalence of marked animals, the
+seroprevalence of unmarked animals, and the proportion of marked
+animals in the population:
+
+<<>>=
+getTable2and3(SamplesModelCatalyticYear)
+@ 
+
+And similarly, we can calculate table 3, showing the results for the
+proprtion of seropositive animals with active infection and the
+proportion of the whole population with active infection:
+
+<<>>=
+getTable2and3(SamplesModelCatalyticYear, table2=FALSE)
+@ 
+
+
+\subsection{Figures of the paper}
+\label{sec:plots-paper}
+
+Similarly, we have programmed the function \texttt{showSummary} to
+draw the figure 3 of the paper. This function displays the posterior
+distribution of (A) the overall seroprevalence of the disease, (B) the
+proportion of marked animals in the population, (C) the proportion of
+actively infected animals among seropositive animals, and (D) the
+proportion of actively infected animals:
+
+<<>>=
+showSummary(SamplesModelCatalyticYear)
+@ 
+
+The function \texttt{showFOI} can be used to draw the figure 4 of the
+paper, showing how the force of infection is estimated to vary among years:
+
+<<>>=
+showFOI(SamplesModelCatalyticYear)
+@ 
+
+\subsection{Constant capture effort over the core area of the massif}
+\label{sec:spatial}
+
+As noted in the paper, we assessed the assumption of constant capture
+effort over the core area of the massif (i.e., no spatial variation):
+we divided our study area into two halves: a northeastern part and a
+southwestern part. We focused on the censuses dataset, and we used our
+model to test whether the proportion of marked animals observed in
+these two areas could have been expected under our non-spatialized
+model. The total numbers of animals observed during the censuses, as
+well as the number of marked animals among these animals, are
+available for each year and zone in the dataset
+\texttt{captureSpatial}:
+
+
+<<>>=
+capturesSpatial
+@ 
+
+The test of constant capture effort is implemented in the function
+\texttt{testSpatial}:
+
+<<>>=
+testSpatial(SamplesModelCatalyticYear, capturesSpatial)
+@ 
+
+This table shows, for each year and each zone, the credible interval
+on the proportion of marked animals expected under our model supposing
+a constant capture effort.
+
+\subsection{Sensitivity of the estimation to the prior distribution}
+\label{sec:sens-estim-prior}
+
+We checked the sensitivity of the estimation to the prior
+distribution. We used the functions \texttt{overlapPriorPost} and
+\texttt{plotOverlap} to calculate the coefficient $\tau$ measuring the
+overlap between the prior and the posterior distribution for each
+parameter of interest in the model. We show below the code used to
+generate the figure in the appendix:
+
+<<>>=
+## Use the MCMC samples from the model ModelCatalyticYear
+rs <- do.call(rbind, SamplesModelCatalyticYear)
+
+## Detects the name of the parameters for which tau should be calculated
+library(stringr)
+nam <- c("pitu","gammat","probad","wt","beta","^eta","sigmaf")
+nam <- unlist(lapply(nam, function(z) colnames(rs)[str_detect(colnames(rs),z)]))
+
+
+## For each parameter, calculates the value of tau:
+
+lb <- sapply(nam, function(na) {
+    if (any(sapply(c("pitu","gammat","probad","probai","wt"), function(x) str_detect(na, x))))
+        tau <- overlapPriorPost(SamplesModelCatalyticYear, na, prior=1, from=0, to=1)
+    if (str_detect(na, "beta"))
+        tau <- overlapPriorPost(SamplesModelCatalyticYear, na)
+    if (str_detect(na, "eta"))
+        tau <- overlapPriorPost(SamplesModelCatalyticYear, na, prior=1/100, from=0, to=100)
+    if (str_detect(na, "sigmaf"))
+        tau <- overlapPriorPost(SamplesModelCatalyticYear, na,
+                                prior="dgamma(den$x[j],0.001, 0.001)", from=0, to=1000)
+    return(tau)
+})
+
+
+## Builds the data.frame required by plotOverlap
+df <- data.frame(Parameter=nam, tau=lb)
+namo <- paste0("expression(",c(paste0("pi[",1:6,"]^(u)"), paste0("gamma[",1:6,"]"), "p[d]", paste0("w[",1:6,"]"), paste0("beta[",0:3,"]"), "eta","sigma[f]"),")")
+df$namo <- namo
+df$prior <- "dunif(z)"
+df$prior[20:23] <- "dnorm(z,0,sqrt(1000))"
+df$prior[24] <- "dunif(z,0,100)"
+df$prior[25] <- "dgamma(z,0.001,scale=0.001)"
+df$from <- 0
+df$to <- 1
+df$from[20:23] <- -4
+df$to[20:23] <- 4
+df$from[24] <- 0
+df$to[24] <- 30
+df$from[25] <- 0.01
+df$to[25] <- 5
+
+
+plotOverlap(SamplesModelCatalyticYear, df, cex=1)
+@ 
+
+As can be seen on this figure, the coefficients that are the most
+sensitive are the yearly seroprevalence among unmarked animals
+$\pi_t^{(u)}$ and the yearly proportion of actively infected animals
+in the population $w_t$. As explained in the appendices of the paper,
+we tried different prior distributions for these parameters to assess
+the sensitivity of the parameters of interest of the model (overall
+seroprevalence and proportion of the population actively infected) to
+these prior distribution. We tried beta distributions characterized by
+two equal parameters, and equal to 1 (uniform distribution), 1.5, 2
+and 5. Larger shape parameters correspond to prior distributions more
+concentrated around 0.5. We fitted the models for the differente
+possible beta distributions below, and calculated the quantities of
+interest below. Note that this code can take some time to execute, and
+that the resulting object \texttt{listRobustness} is available as a
+dataset in the package:
+
+<<eval=FALSE>>=
+library(stringr)
+
+listebeta <- c(1,1.5,2,5)
+
+so <- lapply(listebeta, function(x) {
+    samb <- robustnessPitWit(x,x,1,1, BruData)
+    totalPrevalence(samb)
+})
+dfso <- do.call(rbind, so)
+dfso$beta <- rep(listebeta,each=6)
+sow <- lapply(listebeta, function(x) {
+    samb <- robustnessPitWit(1,1,x,x, BruData)
+    rs <- do.call(rbind,samb)
+    r1 <- rs[,str_detect(colnames(rs), "wt")]
+    data.frame(Year=2013:2018, wtm=colMeans(r1),
+               lb=apply(r1,2,quantile,c(0.1)),
+               ub=apply(r1,2,quantile,c(0.9)))
+})
+dfsow <- do.call(rbind, sow)
+dfsow$beta <- rep(listebeta,each=6)
+soom <- lapply(listebeta, function(x) {
+    samb <- robustnessPitWit(x,x,x,x, BruData)
+    rs <- do.call(rbind,samb)
+    r1a <- rs[,str_detect(colnames(rs), "wt")]
+    r1b <- rs[,str_detect(colnames(rs), "pit\\[")]
+    r1 <- r1a*r1b
+    data.frame(Year=2013:2018, omegam=colMeans(r1),
+               lb=apply(r1,2,quantile,c(0.1)), ub=apply(r1,2,quantile,c(0.9)))
+})
+dfsoom <- do.call(rbind, soom)
+dfsoom$beta <- rep(listebeta,each=6)
+
+listRobustness <- list(pit=dfso, wit=dfsow, pitwit=dfsoom)
+@ 
+
+We can plot the effect of the prior on the estimates below:
+
+
+<<>>=
+library(gridExtra)
+pd <- position_dodge(0.2)
+pl1 <- ggplot(listRobustness$pit,aes(x=Year, y=Prevalence, col=beta, group=beta))+
+    geom_point(size=3, position=pd)+geom_line(position=pd)+
+    geom_errorbar(aes(ymin=LowerBound, ymax=UpperBound), width=0.2, position=pd)+
+    xlab("Year")+ylab("Overall seroprevalence")+ggtitle("(A)")+
+    labs(col = "Shape")
+
+pd <- position_dodge(0.2)
+pl2 <- ggplot(listRobustness$wit,aes(x=Year, y=wtm, col=beta, group=beta))+
+    geom_point(size=3, position=pd)+geom_line(position=pd)+
+    geom_errorbar(aes(ymin=lb, ymax=ub), width=0.2, position=pd)+
+    xlab("Year")+ylab("Prop. active infection among sero+")+
+    ggtitle("(B)")+labs(col = "Shape")
+
+pd <- position_dodge(0.2)
+pl3 <- ggplot(listRobustness$pitwit,aes(x=Year, y=omegam, col=beta, group=beta))+
+    geom_point(size=3, position=pd)+geom_line(position=pd)+
+    geom_errorbar(aes(ymin=lb, ymax=ub), width=0.2, position=pd)+
+    xlab("Year")+ylab("Prop. active Infection")+
+    ggtitle("(C)")+labs(col = "Shape")
+
+grid.arrange(pl1, pl2, pl3, nrow=2)
+@ 
+
+This figure is discussed in the appendices of the paper.
+
+
+
+
+
+\section*{Bibliography}
+\label{sec:bibliography}
+
+\begin{itemize}
+\item Calenge C., Lambert S., Petit E., Thebault A., Gilot-Fromont E.,
+  Toigo C., Rossi S. (in prep.) Estimating disease prevalence and
+  temporal dynamics using biased capture serological data in a
+  wildlife reservoir: the example of brucellosis in Alpine ibex (Capra
+  ibex). Submitted to Preventive Veterinary Medicine.
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,21 @@
+export("getTable2and3",
+       "print.gofBIB","showFOI", "showSummary", "simulateGOF",
+       "testSpatial", "totalPrevalence", "overlapPriorPost", "robustnessPitWit",
+       "plotOverlap")
+
+importFrom("stats", "quantile", "rbinom","median","rnorm","density","sd")
+importFrom("grid", "seekViewport", "pushViewport","unit","grid.rect","grid.lines","grid.text", "viewport","dataViewport", "gpar","grid.newpage")
+importFrom("rjags", "coda.samples", "jags.model")
+importFrom("purrr", "rbernoulli")
+importFrom("graphics", "plot")
+importFrom("tidyr", "gather")
+importFrom("gridExtra", "grid.arrange")
+importFrom("stringr", "str_detect", "str_c")
+importFrom("utils", "object.size", "str","capture.output")
+importFrom("rlang", ".data")
+importFrom("tibble", "rownames_to_column")
+
+
+S3method(print, gofBIB)
+
+import(dplyr)
